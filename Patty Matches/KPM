@@ -1,0 +1,270 @@
+?-
+%pendeklarasian objeck game
+  G_Comp_First=0,
+  G_Take_Last=0,
+  G_Ikon is bitmap_image("Gambar\\burger.bmp",_),
+  G_Latar is bitmap_image("Gambar\\battle.bmp",_),
+  G_depan is bitmap_image("Gambar\\load.bmp",_),
+  G_help is bitmap_image("Gambar\\help.bmp",_),
+  G_kalah is bitmap_image("Gambar\\lose.bmp",_),
+  G_menang is bitmap_image("Gambar\\win.bmp",_),
+  G_boom is bitmap_image("Gambar\\meledak.bmp",_),
+
+
+  pen(0,0),       
+  set(pos([1,2,3,4,5,4,3,2,1])),
+  window_n(G_Main, _, win_per, "Kraby Patty Match(es)", 80,80,680,590,_,_,rgb(255,255,255)).
+ 
+ 
+%loading
+
+win_per(paint):-
+       draw_bitmap(0,0,G_depan,_,_),
+    fail.
+
+win_per(init):-
+    G_batas := 0,
+    G_X := 185,
+    G_waktu is set_timer(_,0.01,load_bar).
+    
+load_bar(end):-
+    text_out(310,200,print("Load Data")),
+    text_out(330,220,print(G_batas + "%")),
+    pen(5,rgb(142,105,68)), %garis pada kotak
+    brush(rgb(0,0,225)), %warna loading
+    rect(120,250,590,280), %gambar kotak pada loading
+    pen(0,rgb(0,0,0)),
+    brush(rgb(255,165,0)),
+    rect(125,255,G_X,275),
+    G_batas := G_batas + 1,
+    G_X := G_X + 4,
+
+
+    (G_batas >= 101 -> 
+    close_window(G_loading),
+    window(G_menu, _, list_menu(_),"Kraby Patty Match(es)", 80,80,680,590)).
+    
+%menu
+list_menu(init):-
+    
+    button(_,_,start(_),"Mulai",230,200,230,40),
+    button(_,_,about(_),"Tentang",230,250,230,40),
+    button(_,_,rules(_),"Aturan Permainan",230,300,230,40),
+    button(_,_,exit(_),"Keluar",230,350,230,40).    
+
+list_menu(paint):-
+    draw_bitmap(0,0,bitmap_image("Gambar//load.bmp",_),_,_),
+    fail.
+start(press):-
+close_window(G_menu),
+beep("suara\\tada.wav"),
+
+  window_n( G_Main, _, win_func, "Kraby Patty Match(es)", 80,80,680,590,_,_,rgb(255,255,255)).
+	
+win_func(init) :- % menambah opsi game
+  menu( normal, _, _, back(_), "&Main Menu"),
+  menu( normal, _, _, mew(_), "&New Game"),
+  menu( normal, _, _, mode(_), "&Mode"),
+  menu( pop_up, G_Menu, _, level(_), "&Level"),
+  menu( normal, _, _, about(_), "&Tentang"),
+  menu( normal, _, _, rules(_), "&Caranya Main"),
+  menu( normal, _, _, close(_), "&Keluar").
+
+level(init):-
+menu(normal,_,_,fun(_),"Plankton Ngamuk"),
+menu(normal,_,_,hard(_),"Plankton Selow").
+
+back(press):-
+    close_window(G_main),
+execute("suara\\evil.wav"),
+    window(G_menu, _, list_menu(_),"Kraby Patty Match(es)", 80,80,680,590).
+    update_window(_).
+fun(press) :-
+level_game(10).
+
+hard(press) :-
+level_game(1).
+
+level_game(M) :-
+G_level :=M.
+
+%memanggil latar dan icon
+win_func(paint):- 
+draw_bitmap(0,0,G_Latar,_,300),
+    pos(Pos),
+  el(Pos,El,N),
+  for(I,1,El),
+  draw_bitmap(10+75*N,5+30*(I-1),G_Ikon,_,_),
+    fail.
+
+
+%letak icon yg di klik
+win_func(mouse_click(X,Y)):- 
+  X1 is (X-10)//75,
+  Y1 is (Y-5)//30,
+  X1=<9,X>=10,
+  pos(Pos),
+  el(Pos,El,X1),
+  El>Y1,
+  replace(Pos2, Pos, Y1, X1),
+ 
+  (Pos2=[0,0,0,0,0,0,0,0,0]->
+    set(pos(Pos2)),
+    end(0)
+
+
+  else
+
+    wait(0.1),
+
+    play(Pos3, Pos2),
+    (Pos3=[0,0,0,0,0,0,0,0,0]->
+      end(1)),
+    set(pos(Pos3))),
+  update_window(_).
+
+win_func(mouse_click(X,Y)):-
+ beep.
+
+%koding AI
+play(Pos3, Pos2):- 
+  G_Take_Last=0,
+  count_successes(not_trivial(Pos2))<G_level,
+  find_max(Pos2,Max,N),
+  New is (Max>1,count_successes(not_empty(Pos2)) mod 2=:=1 -> 1 else 0),
+  replace(Pos3, Pos2, New, N).
+play(Pos3, Pos2):-
+  el(Pos2,A, N),
+  R:=0,
+  add_xor(R,Pos2,N),
+  R<A,
+  replace(Pos3, Pos2, R, N).
+play(Pos3, Pos2):-
+  find_max(Pos2,Max,N),
+  Max2 is (Max>1, random(2)=:=0 ->
+    Max - 2
+  else
+    Max - 1),
+  replace(Pos3, Pos2, Max2, N).
+
+
+not_empty(Pos):-
+  el(Pos,A, _),
+  A>0.
+not_trivial(Pos):-
+  el(Pos,A, _),
+  A>1.
+
+el([H|T],H,0).
+el([H|T],El,N):-
+  el(T,El,N1),
+  N is N1+1.
+
+replace([H|T],[_|T],H,0).
+replace([H|T2],[H|T],El,N):-
+  replace(T2,T,El,N1),
+  N is N1+1.
+
+find_max([H],H,0).
+find_max([H|T],A, N) :-
+  find_max(T,A1,N1),
+  (A1<H->
+    A is H,
+    N is 0
+  else
+    A is A1,
+    N is N1+1).
+
+
+add_xor(_,[],_):-!.
+add_xor(R,[H|T],0):- !,
+  add_xor(R, T, -1).
+add_xor(R,[H|T],N):-
+  N1 is N- 1,
+  R:=R xor H,
+  add_xor(R, T, N1).
+
+%akhir permainan
+end(Flag):- 
+  Flag=G_Take_Last->
+draw_bitmap(0,0,G_boom,_,_),
+beep("suara\\bomb.wav"),
+
+ wait(0.1),
+draw_bitmap(0,0,G_kalah,_,_),
+    message("Plankton:","Aku berhasil mencuri Kraby Patty darimu Krab payah!!!",!)
+
+  else
+draw_bitmap(0,0,G_boom,_,_),
+beep("suara\\bomb.wav"),
+
+ wait(0.12),
+draw_bitmap(0,0,G_menang,_,_),
+
+    message("Krab","Enyah lah kau Plankton!!!!",i),
+update_window(_).
+
+%permainan baru
+mew(press) :- 
+  (G_Comp_First=0->
+    set(pos([1,2,3,4,5,4,3,2,1]))
+  else
+    Pos=[1,2,3,4,5,4,3,2,1],
+    N is 2*random(3),
+    el(Pos,A, N),
+    A2 is A - 1,
+    replace(Pos2, Pos, A2, N),
+    set(pos(Pos2))),
+  update_window(_).
+
+
+
+
+rules(press) :-
+draw_bitmap(0,0,G_help,_,_),
+message("Aturan Permainan","Player akan mengalahkan plankton terlebih dahulu.
+Boleh mengambil berapapun dengan syarat patty yang di ambil hanya satu kolom.
+Jika player mengambil patty yang terakhir maka player akan kalah.
+
+Ayo kalahkan Plankton!!!",i),
+update_window(_).
+
+about(press) :-
+shell_execute("bio\\propil.html").
+
+mode(press) :-
+
+  window_n( _, _, options_func, "Options", 200, 100, 300, 200,?,_,_).
+options_func(init) :-
+  check_box( A, _, check_func, "Plankton ambil pertama", 20, 20, 200, 20),
+  G_A:=A,
+  set_check_box_value(G_A,G_Comp_First),
+  check_box( B, _, check_func, "Plankton ambil terakhir", 20, 60, 200, 20),
+  G_B:=B,
+  set_check_box_value(G_B,G_Take_Last),
+  button( _, _, ok_func(_), "Wokeh", 20, 120, 80, 30),
+  button( _, _, cancel_func(_), "Kagak", 120, 120, 80, 30).
+
+
+ok_func(press) :-
+  G_Comp_First:=get_check_box_value(G_A),
+  G_Take_Last:=get_check_box_value(G_B),
+  (G_Take_Last=1->
+    set_text("Kraby Patty (Ambil Terakhir)",G_Main)
+  else
+    set_text("Kraby Patty (Jangan Ambil Terakhir)",G_Main)),
+  close_window(parent(_)).
+
+cancel_func(press) :-
+  close_window(parent(_)).
+
+check_func(press) :-
+  set_check_box_value(_,1-get_check_box_value(_)).
+
+exit(press) :-
+  close_window(G_menu).
+
+
+close(press) :-
+  close_window(_).
+
